@@ -1,0 +1,227 @@
+# Tips: Every cell is different, so you will need to adjust the cell number and the lysis conditions for your particular situation. “Ideally you want to gently lyse cells to get the transposase in but not disrupt the chromatin state,” says Greenleaf.
+
+# Using too many cells leads to fewer sequencing adapters being inserted, and thus larger DNA fragments; too few cells will lead to shorter bits. The optimal number of cells can vary, depending on the tissue or organism from which the cells originate.
+
+# It’s always good to do some preliminary analysis before you run your samples on a sequencer, or do light sequencing to start, says Greenleaf. You could run a preliminary gel to check out fragment distributions, or run the sample through a machine that quantifies DNA and measures its quality (e.g., Agilent 2100 Bioanalyzer). For production-level sequencing, Greenleaf recommends using paired-end sequencing for the best results.
+
+### -f parameter
+# @crazyhottommy @igordot Yes. With -f BAMPE on, MACS2 read the left mate and the insertion length information from BAM file, and discard right mate. With -f BAM, MACS2 only keeps the left mate, so it's definitely not a feature you want for your paired-end data.
+
+# tangming ATAC calling peaks 
+macs2 callpeak -t {input[0]} \
+            --keep-dup all -f BAMPE -g {config[macs2_g]} \
+            --outdir 08peak_macs2 -n {params.name} -p {config[macs2_pvalue]} \
+            --broad --broad-cutoff {config[macs2_pvalue_broad]} &> {log}
+
+macs2_g: hs
+macs2_pvalue: 1e-5
+
+macs2_pvalue_broad: 1e-5
+
+# BroadPeaks from Nizar
+
+macs2 callpeak -t Sample_KOB-H2AZ/picard/Sample_KOB-H2AZ_mdup.withrg.csorted.cleaned.aligned.bam \
+-c Sample_Input/picard/Sample_Input_mdup.withrg.csorted.cleaned.aligned.bam \
+-g mm \
+--keep-dup all \
+--outdir Sample_KOB-H2AZ/macs2/marrowPeaks/ \
+-n Sample_KOB-H2AZ \
+-B \
+--SPMR &
+
+
+============================================
+#!/bin/bash
+#SBATCH -p serial
+#SBATCH --ntasks=1
+#SBATCH --time=10:00:00
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=12
+#SBATCH --mem=32G
+#SBATCH -o job.%J.out
+#SBATCH -e job.%J.err
+
+
+module purge all
+module load gencore/1 gencore_epigenetics/1.0
+
+cd /scratch/cz21/MLiver_ATAC
+DAT='/scratch/gencore/180509_SN7001341_0430_ACC2B8ACXX/Unaligned/data/analysis_sammy/'
+
+macs2 callpeak -t $DAT/Sammy_CTRL_ATAC_S36/picard/Sammy_CTRL_ATAC_S36_mdup.withrg.csorted.cleaned.aligned.bam \
+-f BAMPE \
+-g mm \
+--keep-dup all \
+--outdir Sammy_CTRL_ATAC_S36/macs2/atac_Peaks/ \
+-n Sammy_CTRL_ATAC_S36 \
+--broad \
+-B 
+
+macs2 callpeak -t $DAT/Sammy_KO_ATAC_S37/picard/Sammy_KO_ATAC_S37_mdup.withrg.csorted.cleaned.aligned.bam \
+-f BAMPE \
+-g mm \
+--keep-dup all \
+--outdir Sammy_KO_ATAC_S37/macs2/atac_Peaks/ \
+-n Sammy_KO_ATAC_S37 \
+--broad \
+-B 
+
+### Call for zebrafish
+cd /scratch/cz21/MLiver_ATAC
+DAT='/scratch/gencore/180509_SN7001341_0430_ACC2B8ACXX/Unaligned/data/analysis/'
+
+macs2 callpeak -t $DAT/ATAC_CTRL_1_ZF_S32/picard/ATAC_CTRL_1_ZF_S32_mdup.withrg.csorted.cleaned.aligned.bam \
+-f BAMPE \
+-g mm \
+--keep-dup all \
+--outdir ATAC_CTRL_1_ZF_S32/macs2/ \
+-n TAC_CTRL_1_ZF_S32 \
+--broad \
+-B 
+
+macs2 callpeak -t $DAT/ATAC_CTRL_2_ZF_S33/picard/ATAC_CTRL_2_ZF_S33_mdup.withrg.csorted.cleaned.aligned.bam \
+-f BAMPE \
+-g mm \
+--keep-dup all \
+--outdir ATAC_CTRL_2_ZF_S33/macs2/ \
+-n ATAC_CTRL_2_ZF_S33 \
+--broad \
+-B 
+
+macs2 callpeak -t $DAT/ATAC_CTRL3_ZF_S39/picard/ATAC_CTRL3_ZF_S39_mdup.withrg.csorted.cleaned.aligned.bam \
+-f BAMPE \
+-g mm \
+--keep-dup all \
+--outdir ATAC_CTRL3_ZF_S39/macs2/ \
+-n ATAC_CTRL3_ZF_S39 \
+--broad \
+-B 
+
+macs2 callpeak -t $DAT/ATAC_KO1_ZF_S30/picard/ATAC_KO1_ZF_S30_mdup.withrg.csorted.cleaned.aligned.bam \
+-f BAMPE \
+-g mm \
+--keep-dup all \
+--outdir ATAC_KO1_ZF_S30/macs2/ \
+-n ATAC_KO1_ZF_S30 \
+--broad \
+-B 
+
+macs2 callpeak -t $DAT/ATAC_KO2_ZF_S38/picard/ATAC_KO2_ZF_S38_mdup.withrg.csorted.cleaned.aligned.bam \
+-f BAMPE \
+-g mm \
+--keep-dup all \
+--outdir ATAC_KO2_ZF_S38/macs2/ \
+-n ATAC_KO2_ZF_S38 \
+--broad \
+-B 
+macs2 callpeak -t $DAT/ATAC_KO3_ZF_S31/picard/ATAC_KO3_ZF_S31_mdup.withrg.csorted.cleaned.aligned.bam \
+-f BAMPE \
+-g mm \
+--keep-dup all \
+--outdir ATAC_KO3_ZF_S31/macs2/ \
+-n ATAC_KO3_ZF_S31 \
+--broad \
+-B 
+
+macs2 callpeak -t $DAT/ATAC_5000_cells_S35/picard/ATAC_5000_cells_S35_mdup.withrg.csorted.cleaned.aligned.bam \
+-f BAMPE \
+-g mm \
+--keep-dup all \
+--outdir ATAC_5000_cells_S35/macs2/ \
+-n ATAC_5000_cells_S35 \
+--broad \
+-B 
+
+macs2 callpeak -t $DAT/ATAC_500_cells_S34/picard/ATAC_500_cells_S34_mdup.withrg.csorted.cleaned.aligned.bam \
+-f BAMPE \
+-g mm \
+--keep-dup all \
+--outdir ATAC_500_cells_S34/macs2/ \
+-n ATAC_500_cells_S34 \
+--broad \
+-B 
+
+
+
+
+
+======
+
+### merge CTRL and KO files into 1
+srun -c1 -t2:00:00 --mem=4000 --pty /bin/bash
+DAT='/scratch/gencore/180509_SN7001341_0430_ACC2B8ACXX/Unaligned/data/analysis'
+samtools merge CTRL_merge_mdup.bam $DAT/ATAC_CTRL*/picard/ATAC_CTRL*_mdup*.bam
+samtools merge KO_merge_mdup.bam $DAT/ATAC_KO*/picard/ATAC_KO*_mdup*.bam
+
+-g zf: 1.3e9 (https://deeptools.readthedocs.io/en/develop/content/feature/effectiveGenomeSize.html)
+
+
+#!/bin/bash
+#SBATCH -p serial
+#SBATCH --ntasks=1
+#SBATCH --time=10:00:00
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=12
+#SBATCH --mem=32G
+#SBATCH -o job.%J.out
+#SBATCH -e job.%J.err
+
+module purge all
+module load gencore/1 gencore_epigenetics/1.0
+
+cd /scratch/cz21/zf_ATAC
+
+macs2 callpeak -t ./Merge_Bam/CTRL_merge_mdup.bam \
+-f BAMPE \
+-g 1.3e9 \
+--keep-dup all \
+--outdir ATAC_CTRL/macs2/ \
+-n ATAC_CTRL \
+--broad \
+-B 
+
+macs2 callpeak -t ./Merge_Bam/KO_merge_mdup.bam \
+-f BAMPE \
+-g 1.3e9 \
+--keep-dup all \
+--outdir ATAC_KO/macs2/ \
+-n ATAC_KO \
+--broad \
+-B 
+
+
+
+=============
+rule ataqv:
+	input: "04aln/{sample}.sorted.bam"
+	output: "04aln/{sample}.sorted.bam.ataqv.json"
+	log: "00log/{sample}_ataqv.log"
+	threads: 1
+	params: jobname = "{sample}"
+	message: "ataqv quality control for {input}"
+	shell:
+		"""
+		source activate root
+		ataqv {config[ataqv_g]} {input} --metrics-file {output} 2> {log}
+		"""
+
+rule json_to_html:
+	input: expand("04aln/{sample}.sorted.bam.ataqv.json", sample = ALL_SAMPLES)
+	output: "11ATAC_qc_html"
+	log: "00log/ATAC_qc_html.log"
+	threads: 1
+	message: "compiling json files to html ATAC-seq QC"
+	shell:
+		"""
+		source activate root
+		mkarv 11ATAC_qc_html {input}
+		"""
+
+source ~/tf14/bin/activate  ### python 2.7 env
+
+ataqv mouse Sammy_KO_ATAC_S37_csorted.cleaned.aligned.bam --metrics-file KO_ATAC_S37.bam.ataqv.json 2> KO_ATAC_S37.bam.ataqv.log
+ataqv mouse Sammy_CTRL_ATAC_S36_csorted.cleaned.aligned.bam --metrics-file CTRL_ATAC_S36.bam.ataqv.json 2> CTRL_ATAC_S36.bam.ataqv.log
+mkarv mm_ATAC_qc_html CTRL_ATAC_S36.bam.ataqv.json, KO_ATAC_S37.bam.ataqv.json  
+
+
+
