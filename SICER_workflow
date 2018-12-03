@@ -1,0 +1,47 @@
+The parameters I used with SICER to call broad domains are window size 1000bp and gap size 4000bp (W 1000 and G 4000). “W200 and G800" is what we normally use for calling histone domains. If you need to normalized ChIP signal against region size, simply divide the enrichment score (either fold enrichment again input or RPM) by the size using R (excel may also be able to do the job) and then preceed to calculate the average. Usually I do not like box plot since a profile is more informative and no size normalization is needed (the size dimension already included). 
+
+
+#["InputDir"] ["bed file"] ["control file"] ["OutputDir"] ["Species"] ["redundancy threshold"] ["window size (bp)"] ["fragment size"] ["effective genome fraction"]   ["gap size (bp)"] ["FDR"]
+
+sh /Users/cz21/Documents/SICER1.1/SICER/SICER.sh /Users/cz21/Documents/Mouse_Chipseq/H3K27me3_SICER WT_H3K27me3.bed Input.bed . mm9 1 1000 75 0.75 4000 .01
+
+
+### SICER WorkFlow ###
+
+### 1. convert bam to bed with bamToBed
+### bedtools bamtobed -i reads.bam | head -3  #check chr name, SICER only defaultly takes 'chr1' format
+### bamToBed -i reads.bam > reads.bed
+srun --pty -n 1 /bin/bash 
+module load gencore/1 gencore_epigenetics/1.0
+
+bamToBed -i Bowtie2/Input_sorted.bam > Input.bed
+bamToBed -i Bowtie2/KO_H3K27me3_sorted.bam > KO_H3K27me3.bed
+bamToBed -i Bowtie2/WT_H3K27me3_sorted.bam > WT_H3K27me3.bed
+
+### 2. Run SICER to call peaks, only mm9 is available, if not customize mm10
+### parameters are from Dan: The parameters I used with SICER to call broad domains are window size 
+# 1000bp and gap size 4000bp (W 1000 and G 4000). “W200 and G800" is what we normally use for calling 
+# histone domains. If you need to normalized ChIP signal against region size, simply divide the 
+# enrichment score (either fold enrichment again input or RPM) by the size using R (excel may also be 
+# able to do the job) and then preceed to calculate the average. Usually I do not like box plot since a 
+# profile is more informative and no size normalization is needed (the size dimension already included). 
+### 2.1 Customize mm10: refer to SICER Readme
+### WT
+sh /Users/cz21/Documents/SICER1.1/SICER/SICER.sh /Users/cz21/Documents/Mouse_Chipseq/H3K27me3_beds WT_H3K27me3.bed Input.bed . mm10 1 1000 75 0.75 4000 .01
+### KO
+sh /Users/cz21/Documents/SICER1.1/SICER/SICER.sh /Users/cz21/Documents/Mouse_Chipseq/H3K27me3_beds KO_H3K27me3.bed Input.bed . mm10 1 1000 75 0.75 4000 .01
+
+### 3. another set of parameter for peak calling was
+# performed using SCIER 1.1 (20) with the following parameters:
+# window size, 200; gap size, 600; false discovery rate, 0.05
+
+========================================================================================================
+### Identifying differentilly enriched regions
+## two pairs of input
+sh SICER-df.sh ["KO bed file"] ["KO control file"] ["WT bed file"]  ["WT control file"] ["window size (bp)"] ["gap size (bp)"] ["FDR for KO vs KOCONTROL or WT vs WTCONTROL"] ["FDR for WT vs KO"]
+## one pair of input
+sh SICER-df-rb.sh  ["KO bed file"] ["WT bed file"] ["window size (bp)"] ["gap size (bp)"] ["E-value"] ["FDR"] 
+###
+### Copy the shell script SICER-df.sh to the directory where the bed files are stored.  
+cd /Users/cz21/Documents/NYUAD/Liver_Regeneration/Mouse_Chipseq/
+sh ~/Documents/SICER1.1/SICER/SICER-df-rb.sh ./H3K27me3_beds/KO_H3K27me3.bed ./H3K27me3_beds/WT_H3K27me3.bed 1000 4000 100 .01
