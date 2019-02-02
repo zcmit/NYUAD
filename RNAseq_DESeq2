@@ -1,0 +1,76 @@
+sampleFiles <- grep('.count', list.files(directory), value=T)
+sampleCondition <- c(rep('Con_DMSO', 3), rep('Tm_M', 3), rep('Tm_S', 3))
+sampleTable <- data.frame(sampleName = sampleFiles,
+                          fileName = sampleFiles,
+                          condition = sampleCondition)
+library(DESeq2)
+ddsHTSeq <- DESeqDataSetFromHTSeqCount(sampleTable = sampleTable,
+                                       directory = directory,
+                                       design= ~ condition)
+### pre-filtering: remove rows whose counts <= 10
+ddsHTSeq <- ddsHTSeq[ rowSums(counts(ddsHTSeq)) > 10, ]
+
+dds <- estimateSizeFactors(ddsHTSeq)
+dds <- estimateDispersions(dds)
+dds <- DESeq(ddsHTSeq)
+### transformation
+rld <- rlog(dds, blind=FALSE)
+head(assay(rld), 3)
+library("pheatmap")
+sampleDists <- dist(t(assay(rld)))
+library("RColorBrewer")
+sampleDistMatrix <- as.matrix(sampleDists)
+names <- sub('.count', '' , rownames(sampleDistMatrix))
+rownames(sampleDistMatrix) <- names
+colnames(sampleDistMatrix) <- names
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows=sampleDists,
+         clustering_distance_cols=sampleDists,
+         col=colors)
+         
+ddsHTSeq <- DESeqDataSetFromHTSeqCount(sampleTable = sub1,
+                                       directory = directory,
+                                       design= ~ condition)
+### pre-filtering: remove rows whose counts <= 10
+ddsHTSeq <- ddsHTSeq[ rowSums(counts(ddsHTSeq)) > 10, ]
+### set untreated or control first so that the direction of the logs fold changes compared to control
+colData(ddsHTSeq)$condition<-factor(colData(ddsHTSeq)$condition, 
+                                    levels=c('Con_DMSO', 'Tm_S'))
+
+dds <- estimateSizeFactors(ddsHTSeq)
+dds <- estimateDispersions(dds)
+dds <- DESeq(ddsHTSeq)
+
+### Add read counts
+Counts_dds <- counts(dds, normalized=TRUE)
+res <- results(dds)
+mcols(res, use.names=TRUE)
+library("IHW")
+resIHW <- results(dds, filterFun=ihw)
+summary(resIHW)
+plotMA(resIHW, ylim=c(-7.5, 7.5),alpha = 0.05, main='Tm_S vs. Con_DMSO', cex=1.2)
+
+library('biomaRt')
+listMarts()    # to see which database options are present
+ensembl <- useMart('ensembl')  # using ensembl database data
+listDatasets(ensembl)     # function to see which datasets are present in ensembl
+mart_zf <- useDataset('drerio_gene_ensembl', useMart('ensembl'))
+# human: 'hgnc_symbol', mouse: 'mgi_symbol', zebrafish: 'zfin_id_symbol' 
+Ensembl_ids <- as.character(row.names(Counts_dds))
+Gene_symbols <- getBM(attributes=c("ensembl_gene_id", "zfin_id_symbol"),
+                      filters='ensembl_gene_id',values=Ensembl_ids, mart=mart_zf) 
+### sort Gene_symbols as ascending order
+Gene_symbols <- Gene_symbols[order(Gene_symbols$ensembl_gene_id), ]
+
+#Gene_GO <- getBM(attributes=c("ensembl_gene_id", "mgi_symbol",'go_id',"interpro_description"),
+#                filter='ensemble_gene_id', values = Ensembl_ids, mart=mart_mm)
+# convert zf to human ensembl id
+# tab <- getLDS(attributes = "ensembl_gene_id", filters = 'ensembl_gene_id', 
+#              values = Ensembl_ids, mart = mart_zf, attributesL = c('ensembl_gene_id', 'hgnc_symbol'),
+#              martL = mart_hg)
+# tab <- tab[order(tab$Gene.stable.ID), ]
+### Summary
+Dat <- cbind(as.data.frame(resIHW), Counts_dds)
+Dat$ensembl_id <- row.names(Counts_dds)
+Dat <- merge(Dat, Gene_symbols, by.x='ensembl_id', by.y='ensembl_gene_id')
