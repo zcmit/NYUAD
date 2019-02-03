@@ -35,3 +35,31 @@ sig_genes <- which(dat$padj <= cutoff)
 sig_genes <- which(dat$padj<0.05)
 # add gene name next to points
 text(x=dat$log2FoldChange[sig_genes], y=-log(dat$pvalue[sig_genes]),label=dat_cytokines$zfin_id_symbol[sig_genes], cex=0.8)
+
+
+### Heatmap of genes subset ###
+### plot UPR genes expression
+### barplot uhrf1 ENSDARG00000103409
+# reading targeted gene list and dataset
+upr_gene <- read.delim('UPR_GeneList.txt')
+# subsetting
+Counts_upr <- Counts_dds[which(rownames(Counts_dds) %in% upr_gene$ensembl), ]
+# two clustering functions
+hclustfunc <- function(x) hclust(x, method="complete")
+distfunc <- function(x) dist(x,method="euclidean")
+# z-score normalizaiton
+library(pheatmap)
+cal_z_score <- function(x){
+  (x - mean(x)) / sd(x)
+}
+
+counts_upr_norm <- t(apply(Counts_upr, 1, cal_z_score))
+counts_upr_norm <- as.data.frame(counts_upr_norm)
+pheatmap(as.matrix(counts_upr_norm[,1:9]))
+### convert ID 
+counts_upr_norm$ensembl <- rownames(counts_upr_norm)
+mer_upr <- merge(counts_upr_norm, upr_gene, by.x='ensembl', by.y='ensembl')
+matrix_upr <- as.matrix(mer_upr[ , 2:10])
+rownames(matrix_upr) <- mer_upr$gene_name
+pheatmap(matrix_upr, fontsize_row=3)
+
