@@ -45,3 +45,25 @@ sh SICER-df-rb.sh  ["KO bed file"] ["WT bed file"] ["window size (bp)"] ["gap si
 ### Copy the shell script SICER-df.sh to the directory where the bed files are stored.  
 cd /Users/cz21/Documents/NYUAD/Liver_Regeneration/Mouse_Chipseq/
 sh ~/Documents/SICER1.1/SICER/SICER-df-rb.sh ./H3K27me3_beds/KO_H3K27me3.bed ./H3K27me3_beds/WT_H3K27me3.bed 1000 4000 100 .01
+
+
+==============================================
+SICER on Dalma
+After conda a environment call SICER, with python2.7
+#!/bin/bash
+#SBATCH -p serial
+#SBATCH --ntasks=1
+#SBATCH --time=5:00:00
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=12
+#SBATCH --mem=32G
+#SBATCH -o job.%J.out
+#SBATCH -e job.%J.err
+
+module load gencore
+module load gencore_annotation
+module load anaconda/2-4.1.1
+source activate /scratch/cz21/software/SICER
+cd /scratch/cz21/Chip_seq_Mouse/3rd_batch/analysis
+
+sh /scratch/cz21/SICER1.1/SICER/SICER.sh /scratch/cz21/Chip_seq_Mouse/3rd_batch/analysis/bamToBed WT-K27_40h_S3_chr.bed Input_S1_chr.bed ./WT-K27_40h mm10 1 1000 75 0.75 4000 .01
