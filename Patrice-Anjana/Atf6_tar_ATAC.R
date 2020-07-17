@@ -1,11 +1,9 @@
 setwd("~/Documents/NYUAD/Zf_ATF6/Atf6_target_ATAC")
 library(ChIPpeakAnno)
 library(ChIPseeker)
-### input ATAC peaks, zebrafish liver
-ATAC <- readPeakFile('../../Zf_ATAC/zf_191223_NB551229_Bha/ATAC-LV_Merge_peaks.broadPeak', head=F)
+### input ATAC peaks, mouse and zebrafish
+ATAC <- readPeakFile('xxx/ATAC-peaks.broadPeak', head=F)
 seqlevels(ATAC) <-  paste('chr', seqlevels(ATAC), sep='')
-larva_ATAC <- readPeakFile('../../Zf_ATAC/2nd_Batch_zf_Bhavani_Jun2018/ATAC_CTRL_peaks.broadPeak', head=F)
-seqlevels(larva_ATAC) <-  paste('chr', seqlevels(larva_ATAC), sep='')
 
 ### atf6 gene list
 atf6_tar <- read.delim('Atf6PutTargets_all_1498.csv', sep = ',')
