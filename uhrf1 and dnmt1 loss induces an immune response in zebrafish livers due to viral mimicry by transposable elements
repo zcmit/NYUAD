@@ -1,0 +1,232 @@
+# Figure 2
+#######################################################
+lvr_uhrf1_dnmt1 <- merge(hi272_lvr_TE_noSingle, dnmt1_lvr_TE_noSingle, 
+                         by = "repName")
+lvr_uhrf1_dnmt1 <- lvr_uhrf1_dnmt1[ ,c(1:3, 7, 9:13, 16, 17, 21, 23:30)]
+lvr_uhrf1_dnmt1 <- lvr_uhrf1_dnmt1[ , c(1:4, 10:12, 7:9, 16:18, 5, 6, 13:15, 19, 20)]
+colnames(lvr_uhrf1_dnmt1) <- c("repName", "baseMean_hi272", "log2FC_hi272", "padj_hi272", 
+                               "baseMean_dnmt1", "log2FC_dnmt1", "padj_dnmt1", 
+                               "hi272_sib1", "hi272_sib2", "hi272_sib4", "dnmt1_sib1", "dnmt1_sib2", "dnmt1_sib3", 
+                               "hi272_mut2", "hi272_mut4", "dnmt1_mut1", "dnmt1_mut2", "dnmt1_mut3")
+# Figure 2A
+plot(log(dnmt1_lvr_TE_noSingle$baseMean), dnmt1_lvr_TE_noSingle$log2FoldChange, pch=20, 
+     xlab="Base Mean", ylab="log2FC", main="dnmt1 - Class", col="grey")
+with(subset(dnmt1_lvr_TE_noSingle, repClass=="DNA"), 
+     points(log(baseMean), log2FoldChange, pch=20, col="orange"))
+with(subset(dnmt1_lvr_TE_noSingle, repClass=="LTR"), 
+     points(log(baseMean), log2FoldChange, pch=20, col="purple1"))
+with(subset(dnmt1_lvr_TE_noSingle, repClass=="LINE"), 
+     points(log(baseMean), log2FoldChange, pch=20, col="cadetblue1"))
+with(subset(dnmt1_lvr_TE_noSingle, repClass=="SINE"), 
+     points(log(baseMean), log2FoldChange, pch=20, col="dodgerblue1"))
+
+# Figure 2B
+plot(log(hi272_lvr_TE_noSingle$baseMean), hi272_lvr_TE_noSingle$log2FoldChange, pch=20, 
+     xlab="Base Mean", ylab="log2FC", main="uhrf1 hi272 - Class", col="grey")
+with(subset(hi272_lvr_TE_noSingle, repClass=="DNA"), 
+     points(log(baseMean), log2FoldChange, pch=20, col="orange"))
+with(subset(hi272_lvr_TE_noSingle, repClass=="LTR"), 
+     points(log(baseMean), log2FoldChange, pch=20, col="purple1"))
+with(subset(hi272_lvr_TE_noSingle, repClass=="LINE"), 
+     points(log(baseMean), log2FoldChange, pch=20, col="cadetblue1"))
+with(subset(hi272_lvr_TE_noSingle, repClass=="SINE"), 
+     points(log(baseMean), log2FoldChange, pch=20, col="dodgerblue1"))
+
+# Figure 2D
+plot(lvr_uhrf1_dnmt1$log2FC_hi272, lvr_uhrf1_dnmt1$log2FC_dnmt1, pch=20, 
+     xlab="Log2FC uhrf1 hi272", ylab="log2FC dnmt1", main="Liver dnmt1 - uhrf1", col="grey")
+with(subset(lvr_uhrf1_dnmt1, repClass=="DNA"), 
+     points(log2FC_hi272, log2FC_dnmt1, pch=20, col="orange"))
+with(subset(lvr_uhrf1_dnmt1, repClass=="LTR"), 
+     points(log2FC_hi272, log2FC_dnmt1, pch=20, col="purple1"))
+with(subset(lvr_uhrf1_dnmt1, repClass=="LINE"), 
+     points(log2FC_hi272, log2FC_dnmt1, pch=20, col="cadetblue1"))
+with(subset(lvr_uhrf1_dnmt1, repClass=="SINE"), 
+     points(log2FC_hi272, log2FC_dnmt1, pch=20, col="dodgerblue1"))
+abline(lm(lvr_uhrf1_dnmt1$log2FC_dnmt1 ~ lvr_uhrf1_dnmt1$log2FC_hi272), lwd=2) 
+#######################################################
+
+# Figure 4
+#######################################################
+# Merge datasets
+Shared_hi272_dnmt1_lvr <- merge(ALL_hi272_lvr, ALL_dnmt1_lvr, by = "ensembl_id")
+Shared_hi272_dnmt1_lvr <- Shared_hi272_dnmt1_lvr[ ,c(1, 3, 4, 8, 10:14, 16:19,
+                                                     23, 25:30, 32, 33, 31)]
+Shared_hi272_dnmt1_lvr <- Shared_hi272_dnmt1_lvr[ ,c(1, 2, 12, 3, 4, 13, 14, 7:9, 
+                                                     18:20, 5, 6, 15:17, 11, 21, 10, 22,23)]
+
+colnames(Shared_hi272_dnmt1_lvr) <- c("ensembl_id", "baseMean_hi272", "baseMean_dnmt1", 
+                                      "log2FC_hi272", "padj_hi272", "log2FC_dnmt1", "padj_dnmt1", "hi272_sib1", 
+                                      "hi272_sib2", "hi272_sib4", "dnmt1_sib1", "dnmt1_sib2", "dnmt1_sib3", 
+                                      "hi272_mut1", "hi272_mut2", "dnmt1_mut1", "dnmt1_mut2", "dnmt1_mut3", 
+                                      "sum_hi272_sib", "sum_dnmt1_sib", "sum_hi272_mut", "sum_dnmt1_mut", 
+                                      "zfin_gene_id")
+
+library('biomaRt')
+mart_hg <- useDataset('hsapiens_gene_ensembl', useMart('ensembl'))
+mart_zf <- useDataset('drerio_gene_ensembl', useMart('ensembl'))
+
+# Assign human gene ID and gene name
+ensembl_ID <- Shared_hi272_dnmt1_lvr$ensembl_id
+shared_hgnc <- getBM(attributes=c("ensembl_gene_id", "zfin_id_symbol"),filters='ensembl_gene_id',
+                     values=ensembl_ID, mart=mart_zf) 
+
+shared_human <- getLDS(attributes = "ensembl_gene_id", filters = 'ensembl_gene_id', values = ensembl_ID, 
+                       mart = mart_zf, attributesL = c("ensembl_gene_id", "hgnc_symbol"), martL = mart_hg)
+
+
+Shared_hi272_dnmt1_lvr_human <- merge(Shared_hi272_dnmt1_lvr,shared_hgnc, by.x = "ensembl_id", by.y="ensembl_gene_id")
+Shared_hi272_dnmt1_lvr_human <- merge(Shared_hi272_dnmt1_lvr_human, shared_human, by.x = "ensembl_id", by.y = "Gene.stable.ID")
+Shared_hi272_dnmt1_lvr_human <- Shared_hi272_dnmt1_lvr_human[ c(1:23, 25, 26)]
+colnames(Shared_hi272_dnmt1_lvr_human) <- c("ensembl_id", "baseMean_hi272", "baseMean_dnmt1", 
+                                            "log2FC_hi272", "padj_hi272", "log2FC_dnmt1", "padj_dnmt1", "hi272_sib1", 
+                                            "hi272_sib2", "hi272_sib4", "dnmt1_sib1", "dnmt1_sib2", "dnmt1_sib3", 
+                                            "hi272_mut1", "hi272_mut2", "dnmt1_mut1", "dnmt1_mut2", "dnmt1_mut3", 
+                                            "sum_hi272_sib", "sum_dnmt1_sib", "sum_hi272_mut", "sum_dnmt1_mut", 
+                                            "zfin_gene_id", "human_ensembl_id", "human_gene_id")
+rm(shared_hgnc)
+rm(shared_human)
+
+# Assign attributes based on p-value adjusted
+Shared_hi272_dnmt1_lvr_human <- Shared_hi272_dnmt1_lvr_human[complete.cases(Shared_hi272_dnmt1_lvr_human), ]
+Shared_hi272_dnmt1_lvr_human$col <- NA
+
+Shared_hi272_dnmt1_lvr_human[Shared_hi272_dnmt1_lvr_human$padj_dnmt1<0.05 & Shared_hi272_dnmt1_lvr_human$padj_hi272>0.05, ]$col <- "dnmt1_only"
+Shared_hi272_dnmt1_lvr_human[Shared_hi272_dnmt1_lvr_human$padj_dnmt1>0.05 & Shared_hi272_dnmt1_lvr_human$padj_hi272<0.05, ]$col <- "hi272_only"
+Shared_hi272_dnmt1_lvr_human[Shared_hi272_dnmt1_lvr_human$padj_dnmt1>0.05 & Shared_hi272_dnmt1_lvr_human$padj_hi272>0.05, ]$col <- "none"
+Shared_hi272_dnmt1_lvr_human[Shared_hi272_dnmt1_lvr_human$padj_dnmt1<0.05 & Shared_hi272_dnmt1_lvr_human$padj_hi272<0.05, ]$col <- "both"
+head(Shared_hi272_dnmt1_lvr_human)
+
+# Figure 4A
+all_plot <-ggplot(Shared_hi272_dnmt1_lvr, aes(x=log2FC_hi272, y=log2FC_dnmt1, color=col)) +
+  geom_point(size=1, shape=20)  +
+  theme_minimal() +
+  coord_fixed() +  
+  labs(title="ALL Genes") +
+  scale_color_manual(values = c("tomato3", "goldenrod2", "skyblue3", "grey")) +
+  geom_vline(xintercept = 0) + geom_hline(yintercept = 0)
+all_plot
+
+# Figure 4B
+for_plotting_comparecluster = function(list,finalgo,no_top_IDs,text_wrapsize){
+  finaldb = as.data.frame(finalgo)
+  topids = vector()
+  names = names(list)
+  
+  #extract top ids for each group
+  for (i in 1:length(names)){
+    name = names[i]
+    top = finaldb[finaldb$Cluster==name,]
+    top = top[order(top$p.adjust),]
+    top = top$ID[1:no_top_IDs]
+    topids = c(topids,top)
+  }
+  
+  dropids = unique(finaldb$ID)
+  dropids = dropids[!dropids %in% topids]
+  #subset GO to only include top IDs
+  plotdb = dropGO(finalgo,term=dropids)
+  
+  library(dplyr)
+  library(stringr)
+  library(forcats)
+  library(clusterProfiler)
+  
+  plot_table = as.data.frame(plotdb)
+  plot_table$GeneRatio = as.numeric(sub('/.*','',plot_table$GeneRatio))/as.numeric(sub('.*/','',plot_table$GeneRatio))
+  plot_table$BgRatio = as.numeric(sub('/.*','',plot_table$BgRatio))/as.numeric(sub('.*/','',plot_table$BgRatio))
+  plot_table$Description = str_wrap(plot_table$Description, width = text_wrapsize)
+  plot_table$p.adjust = as.numeric(plot_table$p.adjust)
+  plot_table$Description = factor(plot_table$Description,levels=rev(unique(plot_table$Description)))
+  
+  return(plot_table)
+}
+
+# create table for uploading on REVIGO
+create_revigo_table = function(go, filename){
+  db = as.data.frame(go)
+  db = db[order(db$p.adjust),]
+  keepgos = data.frame(ID=vector(),p.adjust=vector())
+  
+  #create list of unique GO IDs with lowest p-value of all groups
+  for (i in 1:nrow(db)){
+    if (!db$ID[i] %in% keepgos$ID){
+      keepgos = rbind(keepgos,db[i,])
+    }
+  }
+  write.table(keepgos[,c(2,6)],quote = F,sep = ' ',row.names = F,col.names=F,file = filename)
+}
+
+drop_from_revigo = function(current_go,revigo_filename){
+  revi = read.csv(revigo_filename)
+  db = as.data.frame(current_go)
+  ids = db$ID[!db$ID %in% revi$term_ID[revi$eliminated==0]]
+  dropped_go = dropGO(current_go,term = ids)
+  return(dropped_go)
+}
+
+# Put together the lists (in this case 8) - enrichGO
+fig = list(UP_dnmt1_both=UP_dnmt1_both_list, UP_uhrf1_both=UP_hi272_both_list, DOWN_dnmt1_both=DOWN_dnmt1_both_list, DOWN_uhrf1_both=DOWN_hi272_both_list,
+           UP_dnmt1_only=UP_dnmt1_dnmt1only_list, DOWN_dnmt1_only=DOWN_dnmt1_dnmt1only_list, 
+           UP_uhrf1_only=UP_hi272_hi272only_list, DOWN_uhrf1_only=DOWN_hi272_hi272only_list)
+
+fig_go = compareCluster(fig,fun = "enrichGO",keyType = "ENSEMBL", OrgDb = OrgDb,ont = "BP",readable = TRUE)
+
+create_revigo_table(fig_go,'fig_goidswithp.txt')
+
+# upload this file to REVIGO and retrieve summary of GO terms as csv file and save it in the working directory as REVIGO_fig.csv
+fig_go = drop_from_revigo(fig_go,"REVIGO_fig.csv")# remove unnecessary GO terms 
+scale = 1.5
+wrapsize = 42
+
+# Plot
+fig_plottable = for_plotting_comparecluster(fig,fig_go,6,wrapsize) # change number depending on how many top terms you would like to be shown
+
+
+plot_fig = ggplot(fig_plottable, aes(x = Cluster, y = Description)) + 
+  geom_point(aes(size = GeneRatio, color = p.adjust)) +
+  theme_bw(base_size = 14) +
+  scale_color_continuous(name=str_wrap('Adjusted p-value', width = wrapsize),low="red", high="blue", guide=guide_colorbar(reverse=TRUE))+
+  ylab(NULL) +
+  xlab('')+
+  scale_x_discrete(labels= c('UP in dnmt1 - both','UP in uhrf1 - both','DOWN in dnmt1 - both', 'DOWN_uhrf1 - both', 
+                             'UP in dnmt1 - dnnmt1', 'DOWN in dnmt1 - dnmt1', 'UP in uhrf1 - uhrf1', 'DOWN in uhrf1- uhrf1'))+
+  theme(legend.key.height = unit(30,'points'),
+        axis.text.y = element_text(size = 22,angle=0, hjust=1),
+        axis.text.x = element_text(angle = 45,hjust=1,size=18),
+        text = element_text(size=18),
+        axis.title.x =element_text(size=22))+
+  scale_size(name='Ratio of Genes\nin Gene List',range=c(6*scale, 18*scale),breaks=c(0.02,0.04,0.08,0.14))+
+  theme(strip.text.y = element_blank())+
+  geom_text(aes(label=Count,size=0.002,fontface='bold'),colour='white',show.legend = F)
+
+# Figure 4C
+IPA_shared_both <- subset(Shared_hi272_dnmt1_lvr_human, col=="both") 
+IPA_shared_both <- IPA_shared_both[ , c(24, 4:7)] 
+write.table(IPA_shared_both, file = "IPA_shared_both.txt", quote=F, sep="\t", row.names = F)
+# Use the table to perform Ingenuity Patwhawys Analysis
+
+# Figure 4F
+# z score normalization
+cal_z_score <- function(x){
+  (x - mean(x)) / sd(x)
+}
+# Coronavirus related genes (IPA)
+list <- Coronavirus_pathwasy_IPA
+colnames(Coronavirus_pathwasy_IPA) <- "gene_id"
+idx <- which(Shared_hi272_dnmt1_lvr_human$human_gene_id%in%list$gene_id)
+common <- Shared_hi272_dnmt1_lvr_human[idx, ]
+
+common_sign <- subset(common, col =="both" | col =="dnmt1_only")
+common_sign <- common_sign[-which(duplicated(common_sign$human_gene_id)), ]
+NAMES <- common_sign$human_gene_id
+print(NAMES)
+rownames(common_sign) <- NAMES
+common_names <- common_sign[ ,c(8:18)]
+colnames(common_names) <- c("hi272_sib1", "hi272_sib2", "hi272_sib4", "dnmt1_sib1", "dnmt1_sib2", "dnmt1_sib3",
+                            "hi272_mut1", "hi272_mut2",'dnmt1_mut1', 'dnmt1_mut2', 'dnmt1_mut3')
+common_matrix <- as.matrix(common_names)
+common_matrix_norm <- t(apply(common_matrix, 1, cal_z_score))
+pheatmap(common_matrix_norm, cluster_cols=F, fontsize_row=3, cellheight=3, cellwidth= 4, cutree_rows = 2, border_color = F)
+
+#######################################################
