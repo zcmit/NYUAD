@@ -1,0 +1,215 @@
+---
+global:
+    # Initial Directory Setup
+    - indir:   "data/processed"
+    - outdir:  "data/analysis"
+    # Find Samples
+    - sample_rule: (ATAC.*)$
+    - find_by_dir: 1
+    # Output Directory Structure
+    - by_sample_outdir: 1
+    # Processed Dirs
+    - trimmomatic_dir: "data/processed/{$sample}/trimmomatic"
+    - raw_fastqc_dir: "data/processed/{$sample}"
+    # Analysis Dirs
+    - bwa_mem_dir: "data/analysis/{$sample}/bwa_mem"
+    - samtools_dir: "data/analysis/{$sample}/samtools"
+    - picard_dir: "data/analysis/{$sample}/picard"
+    - deeptools2_dir: 'data/analysis/{$sample}/deeptools2'
+    - gatk_dir: "data/analysis/{$sample}/gatk"
+    - tmp_dir: "data/analysis/{$sample}/tmp"
+    - freebayes_dir: "data/analysis/{$sample}/freebayes"
+    # Tmp Dir - Reference it as the environmental variable TMPDIR
+    - bwa_mem_tmp_dir: "{$ENV{TMPDIR}}/{$sample}/bwa_mem/tmp"
+    # Reference Data
+    - bwa_mem_reference: "/scratch/Reference_Genomes/Public/Vertebrate_other/Danio_rerio/ENSEMBL_release_84/Danio_rerio.GRCz10.dna.toplevel"
+    - reference: '{$self->bwa_mem_reference}.fa'
+    # GATK Args
+    - library: 1
+    - pcrModel: 0
+    - goldenVcf: 0
+    - ploidy:  2
+    # Shortcuts for long read names
+    - READ1:   "{$self->raw_fastqc_dir}/{$sample}_read1.fastq.gz"
+    - READ2:   "{$self->raw_fastqc_dir}/{$sample}_read2.fastq.gz"
+    - TR1:     "{$self->trimmomatic_dir}/{$sample}_read1_trimmomatic"
+    - TR2:     "{$self->trimmomatic_dir}/{$sample}_read2_trimmomatic"
+    # HPC Directives
+    - HPC:
+       - account: 'gencore'
+       - partition: 'serial'
+       - module: 'gencore gencore_dev gencore_variant_detection/1.0'
+       - cpus_per_task: 1
+       - commands_per_node: 1
+rules:
+  - bwa_mem:
+      local:
+        - indir: '{$self->trimmomatic_dir}'
+        - outdir: '{$self->bwa_mem_dir}'
+        - INPUT: '{$self->trimmomatic_dir}/{$sample}'
+        - OUTPUT: '{$self->bwa_mem_dir}/{$sample}_aligned.sam'
+        - HPC:
+          - mem: '60GB'
+          - cpus_per_task: 12
+          - walltime: '24:00:00'
+      process: |
+        #TASK tags={$sample}
+        mkdir {$self->tmp_dir} && \\
+        bwa mem -t 12 -M \
+             {$self->reference} \
+             {$self->INPUT}_read1_trimmomatic_1PE.fastq.gz \
+             {$self->INPUT}_read2_trimmomatic_2PE.fastq.gz \
+             > {$self->OUTPUT}
+  - samtools_view:
+      local:
+        - indir: '{$self->bwa_mem_dir}'
+        - outdir: '{$self->samtools_dir}'
+        - INPUT: '{$self->bwa_mem_dir}/{$sample}_aligned.sam'
+        - OUTPUT: '{$self->samtools_dir}/{$sample}_aligned.bam'
+        - HPC:
+          - deps: 'bwa_mem'
+          - mem: '50GB'
+          - walltime: '14:00:00'
+      process: |
+        #TASK tags={$sample}
+            samtools view -b -S {$self->INPUT} \
+            > {$self->OUTPUT}
+  - picard_cleansam:
+      local:
+        - indir: '{$self->samtools_dir}'
+        - outdir: '{$self->picard_dir}'
+        - INPUT: '{$self->samtools_dir}/{$sample}_aligned.bam'
+        - OUTPUT: '{$self->picard_dir}/{$sample}_cleaned.aligned.bam'
+        - HPC:
+          - deps: 'samtools_view'
+          - mem: '50GB'
+          - walltime: '14:00:00'
+      process: |
+        #TASK tags={$sample}
+        picard -Xmx2g CleanSam \
+            INPUT={$self->INPUT} \
+            O={$self->OUTPUT} \
+            TMP_DIR={$self->tmp_dir}
+  - picard_sortsam:
+      local:
+        - indir: '{$self->picard_dir}'
+        - outdir: '{$self->picard_dir}'
+        - OUTPUT: '{$self->picard_dir}/{$sample}_csorted.cleaned.aligned.bam'
+        - HPC:
+          - deps: 'picard_cleansam'
+          - mem: '50GB'
+          - walltime: '14:00:00'
+      process: |
+        #TASK tags={$sample}
+        picard -Xmx2g  SortSam \
+            INPUT={$self->INPUT} \
+            O={$self->OUTPUT} \
+            SO=coordinate \
+            TMP_DIR={$self->tmp_dir}
+  - picard_collect_multiple_metrics:
+      local:
+        - indir: '{$self->picard_dir}'
+        - outdir: '{$self->picard_dir}'
+        - INPUT: '{$self->picard_dir}/{$sample}_csorted.cleaned.aligned.bam'
+        - OUTPUT: '{$self->picard_dir}/{$sample}_collmulmetr.csorted.cleaned.aligned'
+        - PROGRAM: PROGRAM=CollectAlignmentSummaryMetrics PROGRAM=CollectInsertSizeMetrics PROGRAM=QualityScoreDistribution PROGRAM=MeanQualityByCycle
+        - HPC:
+          - deps: 'picard_sortsam'
+          - mem: '25GB'
+          - walltime: '10:00:00'
+      process: |
+        #TASK tags={$sample}
+        picard -Xmx2g CollectMultipleMetrics \
+            TMP_DIR={$self->bwa_mem_tmp_dir} \
+            I={$self->INPUT} \
+            O={$self->OUTPUT} \
+            {$self->PROGRAM}
+  - picard_add_or_replace_groups:
+      local:
+        - indir: '{$self->picard_dir}'
+        - outdir: '{$self->picard_dir}'
+        - INPUT: '{$self->picard_dir}/{$sample}_csorted.cleaned.aligned.bam'
+        - OUTPUT: '{$self->picard_dir}/{$sample}_withrg.csorted.cleaned.aligned.bam'
+        - ARGS: 'SORT_ORDER=coordinate RGID=1 RGLB={$self->library} RGPL=illumina RGPU=unit1 RGSM={$sample} RGCN=NYUAD'
+        - HPC:
+          - deps: 'picard_sortsam'
+          - mem: '50GB'
+          - walltime: '16:00:00'
+      process: |
+        #TASK tags={$sample}
+        picard -Xmx2g AddOrReplaceReadGroups \
+            I={$self->INPUT} \
+            O={$self->OUTPUT} \
+            {$self->ARGS}
+  - picard_bamindex:
+      local:
+        - indir: '{$self->picard_dir}'
+        - outdir: '{$self->picard_dir}'
+        - INPUT: '{$self->picard_dir}/{$sample}_withrg.csorted.cleaned.aligned.bam'
+        - OUTPUT: '{$self->picard_dir}/{$sample}_withrg.csorted.cleaned.aligned.bam'
+        - HPC:
+          - deps: 'picard_add_or_replace_groups'
+          - mem: '50GB'
+          - walltime: '16:00:00'
+      process: |
+        #TASK tags={$sample}
+        picard -Xmx2g BuildBamIndex \
+            I={$self->INPUT} \
+            TMP_DIR={$self->tmp_dir}
+  - picard_markdups:
+      local:
+        - indir: '{$self->picard_dir}'
+        - outdir: '{$self->picard_dir}'
+        - INPUT: '{$self->picard_dir}/{$sample}_withrg.csorted.cleaned.aligned.bam'
+        - OUTPUT: '{$self->picard_dir}/{$sample}_mdup.withrg.csorted.cleaned.aligned.bam'
+        - metrics_file: '{$self->picard_dir}/{$sample}_markDup_metrics_file.txt'
+        - HPC:
+          - deps: 'picard_add_or_replace_groups'
+          - mem: '60GB'
+          - walltime: '20:00:00'
+      process: |
+        #TASK tags={$sample}
+        picard -Xmx2g MarkDuplicates \
+            REMOVE_DUPLICATES=true \
+            M={$self->metrics_file} \
+            I={$self->INPUT} \
+            O={$self->OUTPUT} \
+            MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=100 \
+            TMP_DIR={$self->tmp_dir}
+  - picard_bamindex2:
+      local:
+        - indir: '{$self->picard_dir}'
+        - outdir: '{$self->picard_dir}'
+        - INPUT: '{$self->picard_dir}/{$sample}_mdup.withrg.csorted.cleaned.aligned.bam'
+        - OUTPUT: '{$self->picard_dir}/{$sample}_mdup.withrg.csorted.cleaned.aligned.bam'
+        - HPC:
+          - deps: 'picard_markdups'
+          - mem: '50GB'
+          - walltime: '12:00:00'
+      process: |
+        #TASK tags={$sample}
+        picard -Xmx2g BuildBamIndex \
+            I={$self->INPUT} \
+            TMP_DIR={$self->tmp_dir}
+  - deeptools2_bamCoverage:
+      local:
+        - outdir: '{$self->deeptools2_dir}/bamCoverage'
+        - INPUT: '{$self->picard_dir}/{$sample}_mdup.withrg.csorted.cleaned.aligned.bam'
+        - OUTPUT: '{$self->deeptools2_dir}/bamCoverage/{$sample}_bamCoverage.bw'
+        - HPC:
+            - deps: 'picard_bamindex2'
+            - cpus_per_task: 12
+            - walltime: '08:00:00'
+            - mem: '50GB'
+            - module: 'gencore gencore_variant_detection'
+      process: |-
+          #TASK tags={$sample}
+          bamCoverage \
+             -b {$self->INPUT} \
+             -o {$self->OUTPUT} \
+             -of bigwig \
+             -bs 10 \
+             -e \
+             --ignoreDuplicates \
+             -p 12 \
+             --normalizeUsingRPKM

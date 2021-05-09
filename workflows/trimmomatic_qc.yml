@@ -1,0 +1,177 @@
+---
+global:
+    # ROOT Directory configurations
+    # Aligning against raw reeds
+    - indir: "data/raw"
+    - outdir: "data/processed"
+    - root_out_dir: "data/processed"
+    - root_in_dir: "data/raw"
+    # Find Samples
+    - sample_rule: (Sample.*)$
+    - by_sample_outdir: 1
+    - find_by_dir: 1
+    # Analsis Dir Setup
+    - jira_ticket: "NCB-234"
+    - analysis_dir: "data/analysis"
+    - trimmomatic_dir: "{$self->root_out_dir}/{$sample}/trimmomatic"
+    - raw_fastqc_dir: "{$self->root_out_dir}/{$sample}/raw_fastqc"
+    # This variable is very specific to the sequencer used
+    - raw_fastq_dir: "{$self->root_in_dir}/{$sample}"
+    #TODO Update these for chunks
+    - TR1: "{$self->trimmomatic_dir}/{$sample}_read1_trimmomatic"
+    - TR2: "{$self->trimmomatic_dir}/{$sample}_read2_trimmomatic"
+    - READ1: "{$self->raw_fastq_dir}/{$sample}_read1.fastq.gz"
+    - READ2: "{$self->raw_fastq_dir}/{$sample}_read2.fastq.gz"
+    - HPC:
+       - module: 'gencore gencore_dev gencore_variant_detection'
+       - partition: 'serial'
+       - commands_per_node: 1
+       - cpus_per_task: 1
+rules:
+    - concat_reads:
+        local:
+            - indir: "{$self->root_in_dir}"
+            - outdir: "{$self->raw_fastqc_dir}"
+            - CAT1: "{$self->raw_fastq_dir}/*_R1*.fastq.gz"
+            - CAT2: "{$self->raw_fastq_dir}/*_R2*.fastq.gz"
+            - HPC:
+               - walltime: '02:00:00'
+               - mem: '10GB'
+        process: |
+              #TASK tags={$sample}_R1
+              cat {$self->CAT1} >  {$self->READ1}
+
+              #TASK tags={$sample}_R2
+              cat {$self->CAT2} >  {$self->READ2}
+    - raw_fastqc:
+        local:
+            - indir: "{$self->root_in_dir}"
+            - outdir: "{$self->raw_fastqc_dir}"
+            - OUTPUT: "{$self->outdir}/{$sample}"
+            - HPC:
+               - deps: concat_reads
+               - walltime: '07:00:00'
+               - mem: '20GB'
+               - module: 'gencore gencore_dev gencore_qc'
+               - cpus_per_task: 3
+        process: |
+              #TASK tags={$sample}_R1
+              mkdir -p {$self->OUTPUT}_R1_FASTQC && \
+                  fastqc --extract \
+                  {$self->READ1} \
+                  -o {$self->OUTPUT}_R1_FASTQC/ -t 3
+
+              #TASK tags={$sample}_R2
+              mkdir -p {$self->OUTPUT}_R2_FASTQC && \
+                  fastqc --extract \
+                  {$self->READ2} \
+                  -o {$self->OUTPUT}_R2_FASTQC/ -t 3
+    - trimmomatic:
+        local:
+            - outdir: "{$self->trimmomatic_dir}"
+            - INPUT:
+              - "{$self->raw_fastq_dir}/{$sample}_read1.fastq.gz"
+              - "{$self->raw_fastq_dir}/{$sample}_read2.fastq.gz"
+            - OUTPUT:
+              - "{$self->TR1}_1PE.fastq"
+              - "{$self->TR1}_1SE.fastq"
+              - "{$self->TR2}_2PE.fastq"
+              - "{$self->TR2}_2SE.fastq"
+              - "{$self->trimmomatic_dir}/{$sample}_trimmomatic.log"
+            - HPC:
+               - deps: concat_reads
+               - walltime: '10:00:00'
+               - mem: '20GB'
+               - module: 'gencore gencore_dev gencore_qc'
+               - cpus_per_task: 6
+        process: |
+             #TASK tags={$sample}_{$self->chunk}
+             trimmomatic \
+                PE -threads 6 \
+                -trimlog {$self->OUTPUT->[4]} \
+                {$self->INPUT->[0]} \
+                {$self->INPUT->[1]} \
+                {$self->OUTPUT->[0]} \
+                {$self->OUTPUT->[1]} \
+                {$self->OUTPUT->[2]} \
+                {$self->OUTPUT->[3]} \
+                TRAILING:3 LEADING:3 SLIDINGWINDOW:4:15 MINLEN:36
+    - trimmomatic_fastqc:
+        local:
+            - indir: "{$self->trimmomatic_dir}"
+            - outdir: "{$self->root_out_dir}/{$sample}/processed/trimm_fastqc"
+            - OUTPUT: "{$self->outdir}/{$sample}"
+            - HPC:
+               - deps: trimmomatic
+               - walltime: '07:00:00'
+               - mem: '20GB'
+               - module: 'gencore gencore_dev gencore_qc'
+               - cpus_per_task: 4
+        process: |
+            #TASK tags={$sample}
+            mkdir -p {$self->OUTPUT}_FASTQC_read1_TRIMMED && \
+            fastqc --extract \
+            {$self->TR1}_1PE.fastq \
+            -o {$self->OUTPUT}_FASTQC_read1_TRIMMED/ -t 4
+
+            #TASK tags={$sample}
+            mkdir -p {$self->OUTPUT}_FASTQC_read2_TRIMMED && \
+            fastqc --extract \
+            {$self->TR2}_2PE.fastq \
+            -o {$self->OUTPUT}_FASTQC_read2_TRIMMED/ -t 4
+    - trimmomatic_gzip:
+        local:
+          - indir: "{$self->trimmomatic_dir}"
+          - outdir: "{$self->trimmomatic_dir}"
+          - INPUT:
+            - "{$self->TR1}_1PE.fastq"
+            - "{$self->TR2}_2PE.fastq"
+            - "{$self->TR1}_1SE.fastq"
+            - "{$self->TR2}_2SE.fastq"
+          - OUTPUT:
+            - "{$self->TR1}_1PE.fastq.gz"
+            - "{$self->TR2}_2PE.fastq.gz"
+            - "{$self->TR1}_1SE.fastq.gz"
+            - "{$self->TR2}_2SE.fastq.gz"
+          - HPC:
+            - deps: trimmomatic_fastqc
+            - walltime: '05:00:00'
+            - mem: '28GB'
+            - module: 'gencore gencore_dev gencore_qc'
+        process: |
+            #TASK tags={$sample}
+            gzip -f {$self->INPUT->[0]}
+
+            #TASK tags={$sample}
+            gzip -f {$self->INPUT->[1]}
+
+            #TASK tags={$sample}
+            gzip -f {$self->INPUT->[2]}
+
+            #TASK tags={$sample}
+            gzip -f {$self->INPUT->[3]}
+    - remove_trimmomatic_logs:
+        local:
+            - INPUT: "{$self->trimmomatic_dir}/{$sample}_trimmomatic.log"
+            - create_outdir: 0
+            - HPC:
+              - deps: trimmomatic
+              - walltime: '48:00:00'
+              - mem: '20GB'
+        process: |
+                #TASK tags={$sample}
+                rm -rf {$self->INPUT}
+    - multiqc:
+        local:
+            - outdir: "{$self->root_out_dir}/multiqc"
+            - create_outdir: 0
+            - override_process: 1
+            - HPC:
+              - deps: 'trimmomatic_fastqc,raw_fastqc'
+              - walltime: '10:00:00'
+              - mem: '20GB'
+        process: |
+                #TASK tags={$sample}
+                multiqc {$self->root_out_dir} \
+                  -i {$self->jira_ticket} \
+                  -n {$self->outdir}/{$self->jira_ticket}.html
