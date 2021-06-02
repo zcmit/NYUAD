@@ -63,3 +63,11 @@ matrix_upr <- as.matrix(mer_upr[ , 2:10])
 rownames(matrix_upr) <- mer_upr$gene_name
 pheatmap(matrix_upr, fontsize_row=3)
 
+
+### MAplot TEs
+dat <- read.table('TEtranscripts_out_TE_analysis_MAplot.txt', header = T)
+require(ggplot2)
+# MAplot
+qplot(log(dat$baseMean), log2FoldChange, 
+      data = dat, colour = class)
+
